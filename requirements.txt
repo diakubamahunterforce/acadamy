@@ -5,3 +5,4 @@ Werkzeug
 cloudinary
 Flask-Migrate
 flasgger
+flask_cors
