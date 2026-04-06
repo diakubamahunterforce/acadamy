@@ -4,3 +4,4 @@ Flask-JWT-Extended
 Werkzeug
 cloudinary
 Flask-Migrate
+flasgge
