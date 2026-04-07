@@ -12,6 +12,6 @@ class Lesson(db.Model):
 
     course_id = db.Column(
         db.Integer,
-        db.ForeignKey("course.id", name="fk_lesson_course"),
+        db.ForeignKey("courses.id", name="fk_lesson_course"),
         nullable=False
     )

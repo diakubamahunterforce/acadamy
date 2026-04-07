@@ -14,27 +14,39 @@ def list_courses():
     """
     Listar cursos
 
-  
     ---
     tags:
-      security:
-        - Bearer: []
-      
+      - Courses
+    security:
+      - Bearer: []
+
     responses:
       200:
         description: Lista de cursos
-        schema:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: integer
-              title:
-                type: string
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    example: 1
+                  title:
+                    type: string
+                    example: Python Básico
     """
+
     courses = Course.query.all()
-    return jsonify([{"id": c.id, "title": c.title} for c in courses])
+
+    return jsonify([
+        {
+            "id": c.id,
+            "title": c.title
+        }
+        for c in courses
+    ]), 200
 
 
 @course_bp.route("/courses", methods=["POST"])
@@ -44,9 +56,11 @@ def create_course():
     Criar curso
     ---
     tags:
+      - Courses
+
     security:
       - Bearer: []
-      - Courses
+      
     consumes:
       - application/json
     parameters:
@@ -81,6 +95,8 @@ def create_course():
     db.session.commit()
 
     return jsonify({"message": "created"})
+
+
 
 
 @course_bp.route("/courses/<int:course_id>/lessons", methods=["GET"])
