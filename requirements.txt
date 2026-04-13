@@ -1,0 +1,8 @@
+Flask
+Flask-SQLAlchemy
+Flask-JWT-Extended
+Werkzeug
+cloudinary
+Flask-Migrate
+flasgger
+flask_cors
