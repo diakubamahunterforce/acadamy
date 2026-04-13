@@ -8,4 +8,5 @@ class Lesson(db.Model):
     video_public_id = db.Column(db.String(255))
     video_url = db.Column(db.String(500))
     course_id = db.Column(db.Integer, db.ForeignKey("courses.id"))
+    duration = db.Column(db.Integer)  # duração em segundos
 

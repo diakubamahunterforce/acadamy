@@ -2,102 +2,45 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <title>Course Player</title>
-
-  <style>
-    body {
-      font-family: Arial;
-      display: flex;
-      gap: 20px;
-      padding: 20px;
-    }
-
-    .sidebar {
-      width: 300px;
-      border-right: 1px solid #ccc;
-      padding-right: 10px;
-    }
-
-    .lesson {
-      padding: 10px;
-      margin: 5px 0;
-      background: #f2f2f2;
-      cursor: pointer;
-      border-radius: 5px;
-    }
-
-    .lesson:hover {
-      background: #ddd;
-    }
-
-    video {
-      width: 800px;
-      background: black;
-    }
-  </style>
+  <title>Teste Stream com Token</title>
 </head>
-
 <body>
 
-  <div class="sidebar">
-    <h3>Aulas</h3>
-    <div id="lessons"></div>
-  </div>
+  <h2>🎬 Stream HLS Protegido</h2>
 
-  <div>
-    <h3>Player</h3>
-    <video id="player" controls></video>
-  </div>
+  <video id="video" controls width="800"></video>
 
-<script>
-const API = "http://127.0.0.1:5000/api";
-const COURSE_ID = 1;
-const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc3NjA3OTgxMywianRpIjoiYjIzMjY4YmUtZDMyYS00OGVjLWFhN2UtNjE0MzcwMDFkNDNmIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjEiLCJuYmYiOjE3NzYwNzk4MTMsImNzcmYiOiJkMjc5ZmQ0Ny1mNWUzLTQ0NDktYTAyNC05N2JjN2ExMDNmZmIiLCJleHAiOjE3NzYxNjYyMTMsInJvbGUiOiJzdHVkZW50In0.DkutqRkcX2Ci9CFpAdMDVvYNs4y4ZyfyeJqW2qdLa98";
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
-// 
-async function loadLessons() {
-  const res = await fetch(`${API}/courses/${COURSE_ID}/lessons`, {
-    headers: {
-      "Authorization": `Bearer ${token}`
-    }
-  });
+  <script>
 
-  const data = await res.json();
+    // 🔐 COLOCA O TEU TOKEN AQUI
+    const token ="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc3NjA5MDAyOSwianRpIjoiMGY0NWMzMzItNGYzYy00NTVmLTkzN2EtMzc4YTMwMmFiNjMzIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjIiLCJuYmYiOjE3NzYwOTAwMjksImNzcmYiOiJhMDk1Mjk5ZC01OWQyLTQ1MjEtOTliMy1lNzNmYjg5ODg3N2MiLCJleHAiOjE3NzYxNzY0MjksInJvbGUiOiJhZG1pbiJ9.YlE8wvcBUFhyitiksdSR6iujxWcbh3nOZrRRQvkFvBs";
 
-  const container = document.getElementById("lessons");
-  container.innerHTML = "";
+    fetch("http://192.168.1.135:5000/api/lessons/4/stream", {
+      method: "GET",
+      headers: {
+        "Authorization": "Bearer " + token
+      }
+    })
+    .then(res => res.json())
+    .then(data => {
 
-  data.lessons.forEach(lesson => {
-    const div = document.createElement("div");
-    div.className = "lesson";
-    div.innerText = lesson.title;
+      const video = document.getElementById("video");
 
-    // 🎬 ao clicar chama endpoint stream
-    div.onclick = () => playLesson(lesson.id);
+      const url = data.stream_url;
 
-    container.appendChild(div);
-  });
-}
+      if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(url);
+        hls.attachMedia(video);
+      } else {
+        video.src = url;
+      }
 
-// 🎥 tocar vídeo via endpoint Flask
-function playLesson(lessonId) {
-  const video = document.getElementById("player");
-
-  const url = `${API}/lessons/${lessonId}/stream`;
-
-  video.pause();
-  video.src = url;
-  video.load();
-
-  video.onloadeddata = () => {
-    video.play().catch(err => {
-      console.log("Erro ao tocar vídeo:", err);
     });
-  };
-}
 
-loadLessons();
-</script>
+  </script>
 
 </body>
 </html>
