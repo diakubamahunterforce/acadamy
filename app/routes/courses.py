@@ -1,6 +1,5 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import current_user, jwt_required, get_jwt_identity
-
 from app.models.user import User
 from ..models.course import Course
 from ..models.lesson import Lesson
@@ -63,9 +62,123 @@ def list_courses():
     ]), 200
 
 
-@course_bp.route("/lessons", methods=["POST"])
+
+
+
+
+@course_bp.route("/courses/create", methods=["POST"])
 @jwt_required()
-def create_lesson():
+def Create_course():
+    """
+    Criar um novo curso
+    ---
+    tags:
+      - Courses
+    security:
+      - Bearer: []
+
+    consumes:
+      - application/json
+
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - title
+          properties:
+            title:
+              type: string
+              example: "Curso de Python"
+            description:
+              type: string
+              example: "Aprenda Python do zero ao avançado"
+            price:
+              type: number
+              example: 49.99
+
+    responses:
+      201:
+        description: Curso criado com sucesso
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            course:
+              type: object
+              properties:
+                id:
+                  type: integer
+                title:
+                  type: string
+
+      400:
+        description: Erro nos dados enviados
+
+      401:
+        description: Não autorizado (token inválido)
+    """
+    
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+
+    if current_user.role not in ["admin", "instructor"]:
+        return jsonify({"error": "Acesso negado"}), 403
+
+    data = request.get_json()
+
+    title = data.get("title")
+    description = data.get("description")
+    price = data.get("price")
+
+    if not title:
+        return jsonify({"error": "Título é obrigatório"}), 400
+
+    course = Course(
+        title=title,
+        description=description,
+        price=price
+    )
+
+    db.session.add(course)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Curso criado com sucesso",
+        "course": {
+            "id": course.id,
+            "title": course.title
+        }
+    }), 201
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@course_bp.route("/lessons/create-video", methods=["POST"])
+@jwt_required()
+def create_lesson__video():
     """
     Criar aula com upload de vídeo
     ---
@@ -108,8 +221,6 @@ def create_lesson():
 
     if not title or not course_id or not file:
         return jsonify({"error": "Dados incompletos"}), 400
-
-    import cloudinary.uploader
 
     result = cloudinary.uploader.upload(
         file,
