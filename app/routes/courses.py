@@ -21,7 +21,7 @@ course_bp = Blueprint("course", __name__)
 
 
 @course_bp.route("/courses", methods=["GET"])
-@jwt_required()
+
 def list_courses():
     """
     Listar cursos
@@ -55,7 +55,12 @@ def list_courses():
     return jsonify([
         {
             "id": c.id,
-            "title": c.title
+            "title": c.title,
+             "description":c.description,
+             "price":c.price,
+         
+
+
         }
         for c in courses
     ]), 200

@@ -6,5 +6,12 @@ class Course(db.Model):
     title = db.Column(db.String(150))
     description = db.Column(db.Text)
     price = db.Column(db.Float)
+   
+
+  
+
+   
+
+
   
    

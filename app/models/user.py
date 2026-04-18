@@ -8,6 +8,11 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True)
     password = db.Column(db.String(255))
     role = db.Column(db.String(20), default="student")
+    perfil= db.column(db.text)
+    skill=db.column(db.text)
+
+    
+   
 
     def set_password(self, p):
         self.password = generate_password_hash(p)
