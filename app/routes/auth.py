@@ -1,9 +1,15 @@
+import hashlib
+
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash
+
+from app.utils.email import send_email
 from ..models.user import User
 from ..extensions import db
-
+import random
+import time
+reset_codes = {}
 auth_bp = Blueprint("auth", __name__)
 
 
@@ -367,3 +373,236 @@ def login():
             "role": user.role
         }
     }), 200
+
+
+
+
+
+
+
+
+
+
+
+@auth_bp.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    """
+    Enviar código OTP para recuperação de senha
+    ---
+    tags:
+      - Auth
+    description: Envia código de recuperação para o email (sem revelar se o usuário existe)
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - email
+          properties:
+            email:
+              type: string
+              example: user@gmail.com
+    responses:
+      200:
+        description: Código enviado (resposta genérica por segurança)
+      400:
+        description: Email inválido
+    """
+
+    data = request.json
+    email = data.get("email")
+
+    if not email:
+        return jsonify({"error": "Email obrigatório"}), 400
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        return jsonify({"message": "Se o email existir, o código foi enviado"}), 200
+
+    code = str(random.randint(100000, 999999))
+    hashed_code = hashlib.sha256(code.encode()).hexdigest()
+
+    reset_codes[email] = {
+        "code": hashed_code,
+        "expire": time.time() + 600,
+        "attempts": 0
+    }
+
+    send_email(
+        to=email,
+        subject="Recuperação de senha",
+        body=f"Seu código é: {code}"
+    )
+
+    return jsonify({"message": "Se o email existir, o código foi enviado"})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@auth_bp.route('/verify-code', methods=['POST'])
+def verify_code():
+    """
+    Verificar código OTP
+    ---
+    tags:
+      - Auth
+    description: Valida o código enviado ao email (com limite de tentativas)
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - email
+            - code
+          properties:
+            email:
+              type: string
+              example: user@gmail.com
+            code:
+              type: string
+              example: "123456"
+    responses:
+      200:
+        description: Código válido
+      400:
+        description: Código inválido ou expirado
+      429:
+        description: Muitas tentativas
+    """
+
+    data = request.json
+    email = data.get("email")
+    code = data.get("code")
+
+    stored = reset_codes.get(email)
+
+    if not stored:
+        return jsonify({"error": "Código inválido"}), 400
+
+    if stored["attempts"] >= 3:
+        return jsonify({"error": "Muitas tentativas"}), 429
+
+    hashed_code = hashlib.sha256(code.encode()).hexdigest()
+
+    if time.time() > stored["expire"]:
+        return jsonify({"error": "Código expirado"}), 400
+
+    if stored["code"] != hashed_code:
+        stored["attempts"] += 1
+        return jsonify({"error": "Código inválido"}), 400
+
+    return jsonify({"message": "Código válido"})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@auth_bp.route('/reset-password', methods=['POST'])
+def reset_password():
+    """
+    Resetar senha do usuário
+    ---
+    tags:
+      - Auth
+    description: Atualiza a senha do usuário após validação do código OTP
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - email
+            - code
+            - password
+          properties:
+            email:
+              type: string
+              example: user@gmail.com
+            code:
+              type: string
+              example: "123456"
+            password:
+              type: string
+              example: "NovaSenha123"
+    responses:
+      200:
+        description: Senha atualizada com sucesso
+      400:
+        description: Código inválido ou expirado
+      404:
+        description: Usuário não encontrado
+    """
+
+    data = request.json
+
+    email = data.get("email")
+    code = data.get("code")
+    new_password = data.get("password")
+
+    if not email or not code or not new_password:
+        return jsonify({"error": "Dados incompletos"}), 400
+
+    stored = reset_codes.get(email)
+
+    if not stored:
+        return jsonify({"error": "Código inválido"}), 400
+
+    import hashlib, time
+    hashed_code = hashlib.sha256(code.encode()).hexdigest()
+
+    # verificar código
+    if stored["code"] != hashed_code:
+        return jsonify({"error": "Código inválido"}), 400
+
+    # verificar expiração
+    if time.time() > stored["expire"]:
+        return jsonify({"error": "Código expirado"}), 400
+
+    # buscar usuário
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        return jsonify({"error": "Usuário não encontrado"}), 404
+
+    from werkzeug.security import generate_password_hash
+
+    # atualizar senha
+    user.password = generate_password_hash(new_password)
+    db.session.commit()
+
+    # apagar código após uso
+    del reset_codes[email]
+
+    return jsonify({"message": "Senha atualizada com sucesso"})

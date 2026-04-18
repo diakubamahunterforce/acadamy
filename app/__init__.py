@@ -1,17 +1,21 @@
-from flask import Flask
+from flask import Flask, app
 from flasgger import Swagger
 from flask_cors import CORS
 from datetime import timedelta
-from .extensions import db, jwt
+from .extensions import db, jwt, mail
 from  flask_migrate import Migrate
 from .routes.auth import auth_bp
 from .routes.courses import course_bp
 from .routes.purchase import purchase_bp
 from .routes.my_curse import course_my_bp
 from .utils.init_admin import create_default_admin
+import os
+from dotenv import load_dotenv
 
 def create_app():
+    load_dotenv()
     app = Flask(__name__)
+
     CORS(app, resources={r"/api/*": {"origins": "*"}})
    
    
@@ -24,10 +28,12 @@ def create_app():
     app.config["JWT_TOKEN_LOCATION"] = ["headers"]
     app.config["JWT_HEADER_NAME"] = "Authorization"
     app.config["JWT_HEADER_TYPE"] = "Bearer"
+    app.config["SENDGRID_API_KEY"] = os.getenv("SENDGRID_API_KEY")
+    app.config["SENDER_EMAIL"] = os.getenv("SENDER_EMAIL")
 
     jwt.init_app(app)
-
- 
+    mail.init_app(app)
+    
 
  
     swagger_template = {
@@ -74,9 +80,7 @@ def create_app():
     app.register_blueprint(purchase_bp, url_prefix="/api")
     app.register_blueprint(course_my_bp, url_prefix="/api")
 
-    # ======================
-    # CREATE TABLES
-    # ======================
+   
     with app.app_context():
         db.create_all()
         create_default_admin()
