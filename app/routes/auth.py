@@ -3,8 +3,7 @@ import hashlib
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash
-
-from app.utils.email import send_email
+from s import send_email
 from ..models.user import User
 from ..extensions import db
 import random
@@ -385,13 +384,15 @@ def login():
 
 
 @auth_bp.route('/forgot-password', methods=['POST'])
+
 def forgot_password():
     """
     Enviar código OTP para recuperação de senha
     ---
     tags:
       - Auth
-    description: Envia código de recuperação para o email (sem revelar se o usuário existe)
+    summary: Enviar OTP para email
+    description: Gera e envia código de recuperação de senha por email
     parameters:
       - in: body
         name: body
@@ -406,12 +407,14 @@ def forgot_password():
               example: user@gmail.com
     responses:
       200:
-        description: Código enviado (resposta genérica por segurança)
+        description: Email enviado (resposta genérica por segurança)
       400:
         description: Email inválido
+      429:
+        description: Aguardar 1 minuto antes de tentar novamente
     """
 
-    data = request.json
+    data = request.get_json()
     email = data.get("email")
 
     if not email:
@@ -420,37 +423,35 @@ def forgot_password():
     user = User.query.filter_by(email=email).first()
 
     if not user:
-        return jsonify({"message": "Se o email existir, o código foi enviado"}), 200
+        return jsonify({"message": "email nao encontrado"}), 401
+
+    now = time.time()
+    stored = reset_codes.get(email)
+
+    if stored and "last_sent" in stored:
+        if now - stored["last_sent"] < 60:
+            return jsonify({"error": "Aguarde 1 minuto"}), 429
 
     code = str(random.randint(100000, 999999))
     hashed_code = hashlib.sha256(code.encode()).hexdigest()
 
     reset_codes[email] = {
         "code": hashed_code,
-        "expire": time.time() + 600,
-        "attempts": 0
+        "expire": now + 600,
+        "attempts": 0,
+        "last_sent": now
     }
 
     send_email(
         to=email,
-        subject="Recuperação de senha",
-        body=f"Seu código é: {code}"
+       
+        subject="Recuperacao de senha",
+        body=f"Seu codigo OTP e : {code}"
+
     )
+   
 
-    return jsonify({"message": "Se o email existir, o código foi enviado"})
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return jsonify({"message": "seu  codigo foi enviado"}), 200
 
 
 
@@ -463,7 +464,8 @@ def verify_code():
     ---
     tags:
       - Auth
-    description: Valida o código enviado ao email (com limite de tentativas)
+    summary: Validar código OTP enviado por email
+    description: Verifica se o código OTP está correto e não expirou
     parameters:
       - in: body
         name: body
@@ -489,9 +491,12 @@ def verify_code():
         description: Muitas tentativas
     """
 
-    data = request.json
+    data = request.get_json()
     email = data.get("email")
     code = data.get("code")
+
+    if not email or not code:
+        return jsonify({"error": "Email e código são obrigatórios"}), 400
 
     stored = reset_codes.get(email)
 
@@ -501,31 +506,22 @@ def verify_code():
     if stored["attempts"] >= 3:
         return jsonify({"error": "Muitas tentativas"}), 429
 
-    hashed_code = hashlib.sha256(code.encode()).hexdigest()
-
     if time.time() > stored["expire"]:
+        del reset_codes[email]
         return jsonify({"error": "Código expirado"}), 400
+
+    hashed_code = hashlib.sha256(code.encode()).hexdigest()
 
     if stored["code"] != hashed_code:
         stored["attempts"] += 1
-        return jsonify({"error": "Código inválido"}), 400
+        return jsonify({
+            "error": "Código inválido",
+            "tentativas_restantes": 3 - stored["attempts"]
+        }), 400
 
-    return jsonify({"message": "Código válido"})
+    del reset_codes[email]
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return jsonify({"message": "Código válido"}), 200
 
 
 @auth_bp.route('/reset-password', methods=['POST'])
@@ -535,7 +531,8 @@ def reset_password():
     ---
     tags:
       - Auth
-    description: Atualiza a senha do usuário após validação do código OTP
+    summary: Alterar senha após validação do OTP
+    description: Atualiza a senha do usuário após verificação do código OTP
     parameters:
       - in: body
         name: body
@@ -544,65 +541,47 @@ def reset_password():
           type: object
           required:
             - email
-            - code
-            - password
+            - new_password
           properties:
             email:
               type: string
               example: user@gmail.com
-            code:
+            new_password:
               type: string
-              example: "123456"
-            password:
-              type: string
-              example: "NovaSenha123"
+              example: MinhaNovaSenha123
     responses:
       200:
-        description: Senha atualizada com sucesso
+        description: Senha alterada com sucesso
       400:
-        description: Código inválido ou expirado
-      404:
-        description: Usuário não encontrado
+        description: Dados inválidos ou email não encontrado
     """
 
-    data = request.json
+    data = request.get_json()
 
     email = data.get("email")
-    code = data.get("code")
-    new_password = data.get("password")
+    new_password = data.get("new_password")
 
-    if not email or not code or not new_password:
-        return jsonify({"error": "Dados incompletos"}), 400
+    if not email or not new_password:
+        return jsonify({"error": "Email e nova senha são obrigatórios"}), 400
 
-    stored = reset_codes.get(email)
-
-    if not stored:
-        return jsonify({"error": "Código inválido"}), 400
-
-    import hashlib, time
-    hashed_code = hashlib.sha256(code.encode()).hexdigest()
-
-    # verificar código
-    if stored["code"] != hashed_code:
-        return jsonify({"error": "Código inválido"}), 400
-
-    # verificar expiração
-    if time.time() > stored["expire"]:
-        return jsonify({"error": "Código expirado"}), 400
-
-    # buscar usuário
     user = User.query.filter_by(email=email).first()
 
     if not user:
-        return jsonify({"error": "Usuário não encontrado"}), 404
+        return jsonify({"error": "Usuário não encontrado"}), 400
 
-    from werkzeug.security import generate_password_hash
+    if email in reset_codes:
+        return jsonify({"error": "OTP ainda não validado"}), 400
 
-    # atualizar senha
-    user.password = generate_password_hash(new_password)
+    hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
+
+    user.password = hashed_password
     db.session.commit()
 
-    # apagar código após uso
-    del reset_codes[email]
+    return jsonify({"message": "Senha alterada com sucesso"}), 200
 
-    return jsonify({"message": "Senha atualizada com sucesso"})
+
+
+
+
+
+

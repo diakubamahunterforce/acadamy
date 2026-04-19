@@ -9,11 +9,10 @@ from .routes.courses import course_bp
 from .routes.purchase import purchase_bp
 from .routes.my_curse import course_my_bp
 from .utils.init_admin import create_default_admin
-import os
-from dotenv import load_dotenv
+
 
 def create_app():
-    load_dotenv()
+   
     app = Flask(__name__)
 
     CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -28,8 +27,7 @@ def create_app():
     app.config["JWT_TOKEN_LOCATION"] = ["headers"]
     app.config["JWT_HEADER_NAME"] = "Authorization"
     app.config["JWT_HEADER_TYPE"] = "Bearer"
-    app.config["SENDGRID_API_KEY"] = os.getenv("SENDGRID_API_KEY")
-    app.config["SENDER_EMAIL"] = os.getenv("SENDER_EMAIL")
+ 
 
     jwt.init_app(app)
     mail.init_app(app)

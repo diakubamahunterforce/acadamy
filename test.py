@@ -1,31 +1,34 @@
-import os
-from dotenv import load_dotenv
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
-# carregar .env
-load_dotenv()
+# CONFIGURAÇÕES
+smtp_server = "smtp.gmail.com"
+port = 587
 
-API_KEY = os.getenv("SENDGRID_API_KEY")
-SENDER = os.getenv("SENDER_EMAIL")
+sender_email = "diakubamahunterforce@gmail.com"
+password = "lrzg tyvr voon xhua"  # não é a senha normal do Gmail
+receiver_email = "diakubamalinuxo@gmail.com"
 
-print("API KEY:", API_KEY)
-print("SENDER:", SENDER)
+# CRIAR EMAIL
+msg = MIMEMultipart()
+msg["Subject"] = "Teste de envio de email com Python aç"
+msg["From"] = "Your Name <youremail@gmail.com>"
+msg["To"] = receiver_email
 
+# CORPO DO EMAIL
+body = "Olá! Este email foi enviado usando Python com smtplib."
+msg.attach(MIMEText(body, "plain"))
+
+# ENVIO
 try:
-    message = Mail(
-        from_email=SENDER,
-        to_emails="diakubamahunterforce@gmail.com",  # coloca teu email para receber
-        subject="Teste SendGrid",
-        html_content="<strong>Funcionando!</strong>"
-    )
+    server = smtplib.SMTP(smtp_server, port)
+    server.starttls()
+    server.login(sender_email, password)
 
-    sg = SendGridAPIClient(API_KEY)
-    response = sg.send(message)
+    server.sendmail(sender_email, receiver_email, msg.as_string())
+    server.quit()
 
-    print("Status:", response.status_code)
-    print("Body:", response.body)
-    print("Headers:", response.headers)
-
+    print("Email enviado com sucesso!")
 except Exception as e:
-    print("Erro:", str(e))
+    print("Erro ao enviar email:", e)
